@@ -22,6 +22,7 @@
 	4. 评论也有些麻烦。
      	- 评论存在一个特定的规律可循,根据这个链接可抓取相应的需要的数据
           [例子](https://sclub.jd.com/comment/productPageComments.action?productId=2402694&score=0&sortType=3&page=0&pageSize=10)
+
            固定: https://sclub.jd.com/comment/productPageComments.action?
 
         		- productId:商品Id唯一
