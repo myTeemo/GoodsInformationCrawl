@@ -7,20 +7,20 @@ import time
 import requests
 import json
 import re
-import chardet
-
 
 ___author__ = 'Mingyang HE'
 
-class goodsDetails(object):
 
-    '''
+class GoodsDetails(object):
+
+    """
         该类将获取每一个链接对应商品的价格、参数、图片、以及用户的评论
-    '''
+    """
     def __init__(self,href):
 
         self.href = href
-        self.browser = webdriver.Chrome(lang.chromeDriver)
+        # self.browser = webdriver.Chrome(lang.chromeDriver)
+        self.browser = webdriver.PhantomJS()
         self.score = '0'
         self.sortType = '3'
         self.page = '0'
@@ -62,13 +62,20 @@ class goodsDetails(object):
             # 输出信息
             print GoodsArgs['name']
             print GoodsArgs['price']
-
+            print GoodsArgs['brand']
+            temp_args=[]
             for arg in args:
 
-                print arg.xpath('string(.)').replace('\n','').replace(' ','')
+                temp_arg =arg.xpath('string(.)').replace('\n','').replace(' ','')
+                temp_args.append(temp_arg)
+                print temp_arg
 
+            GoodsArgs['args'] = temp_args
             GoodsArgs['images'] = self.getGoodsImages(pageSource)
-            self.getGoodsComments()
+            GoodsArgs['comments'] = self.getGoodsComments()
+
+            return GoodsArgs
+
     # 获取商品的图片链接
     def getGoodsImages(self,html):
         GoodsImages = []
@@ -123,45 +130,77 @@ class goodsDetails(object):
         pattern = re.compile(r'\d+')
         productId = re.findall(pattern,self.href)[0]
 
-        comments_addr=lang.JD_Goods_Comments_JSON.substitute(productId=productId, score=self.score, sortType=self.sortType, page=self.page,pageSize=self.pageSize)
-        print  comments_addr
+        comments_addr = lang.JD_Goods_Comments_JSON.substitute(productId=productId, score=self.score, sortType=self.sortType,page=self.page, pageSize=self.pageSize)
+        print comments_addr
         comment_Json = requests.get(comments_addr)
-        # print  comment_Json.content
-        # print comment_Json.encoding
-        # 这里的编码是一个坑,request返回的结果是GBK,但是却给报
-        # UnicodeDecodeError: 'gbk' codec can't decode bytes in position 48923-48924: illegal multibyte sequence
-        # 这样的错误,后来发现原因是这里面返回的结果的某些字符,GBK不能解码的。于是尝试比GBK更具有兼容性的GB18030编码,于是解决问题
         comment_Json_content = comment_Json.content.decode('GB18030')
 
         comment_Json_content = json.loads(comment_Json_content)
 
+        # print comment_Json_content
         # 商品的评论概要,返回一个字典
         productCommentSummary = comment_Json_content['productCommentSummary']
         # 热点评论标签统计,返回一个列表,列表里面的每一个元素是一个字典
         hotCommentTagStatistics = comment_Json_content['hotCommentTagStatistics']
         # 当前搜索评分下的最大页数,返回int类型
         maxPage = comment_Json_content['maxPage']
+        # print type(maxPage)
         # 评分  0:全部评论;1:差评;2中评;3:好评;4:晒图;5:追评 返回int类型
-        score = comment_Json_content['score']
+        score = comment_Json_content['score']  # 1遍
         # 分类类型 默认是3 这个字段没有看懂是什么意思,但是却是必须要有的,否则会得不到返回的结果,返回int类型
-        sortType = comment_Json_content['soType']
+        sortType = comment_Json_content['soType']  # 1遍
         # 图片列表的数量,这里表示晒图中一共有多上张图片,返回int类型
         imageListCount = comment_Json_content['imageListCount']
-        # 评论主体部分,是一个列表,列表里面的每一个元素是一个字典
-        comments = comment_Json_content['comments']
 
+        # 商品的评论概要,返回一个字典
+        productCommentSummary = comment_Json_content['productCommentSummary']  # 1遍
+        # 热点评论标签统计,返回一个列表,列表里面的每一个元素是一个字典
+        hotCommentTagStatistics = comment_Json_content['hotCommentTagStatistics']  # 1遍
         # 过滤商品评论概要
-        productCommentSummary_Filter = self.productCommentSummaryFilter(productCommentSummary)
+        productCommentSummary_Filter = self.productCommentSummaryFilter(productCommentSummary)  # 1遍
         # 过滤热点商品标签统计
-        hotCommentTagStatistics_Filter = self.hotCommentTagStatisticsFilter(hotCommentTagStatistics)
-        # 过滤买家评论
-        comments_Filter = self.commentsFilter(comments)
-        # print productCommentSummary_Filter
-        # print hotCommentTagStatistics_Filter
-        # print comments_Filter
+        hotCommentTagStatistics_Filter = self.hotCommentTagStatisticsFilter(hotCommentTagStatistics)  # 1遍
+
         self.outputProductCommentSummary_Filter(productCommentSummary_Filter)
         self.outputHotCommentTagStatistics_Filter(hotCommentTagStatistics_Filter)
-        self.outputcomments_Filter(comments_Filter)
+
+        allComments = []
+        for score in range(0,6):
+
+            for page in range(0,3):
+
+                if page < maxPage:
+
+                    score = str(score)
+                    page  = str(page)
+                    comments_addr = lang.JD_Goods_Comments_JSON.substitute(productId=productId, score=score, sortType=self.sortType, page=page,pageSize=self.pageSize)
+
+                    print comments_addr
+
+                    comment_Json = requests.get(comments_addr)
+                    # print comment_Json.encoding
+                    # 这里的编码是一个坑,request返回的结果是GBK,但是却给报
+                    # UnicodeDecodeError: 'gbk' codec can't decode bytes in position 48923-48924: illegal multibyte sequence
+                    # 这样的错误,后来发现原因是这里面返回的结果的某些字符,GBK不能解码的。于是尝试比GBK更具有兼容性的GB18030编码,于是解决问题
+                    comment_Json_content = comment_Json.content.decode('GB18030').encode('utf-8')
+                    comment_Json_content = json.loads(comment_Json_content)
+                    # print comment_Json_content
+                    # 评论主体部分,是一个列表,列表里面的每一个元素是一个字典
+                    comments = comment_Json_content['comments']
+                    # 当前搜索评分下的最大页数,返回int类型
+                    maxPage = comment_Json_content['maxPage']
+                    # 过滤买家评论
+                    comments_Filter = self.commentsFilter(comments)
+                    # print productCommentSummary_Filter
+                    # print hotCommentTagStatistics_Filter
+                    # print comments_Filter
+                    self.outputcomments_Filter(comments_Filter)
+                    allComments = allComments + comments_Filter
+
+        # comments_Filter = [ j for i in comments for j in i ]
+        # print len(allComments)
+        return [productCommentSummary_Filter,hotCommentTagStatistics_Filter,allComments]
+
     # 过滤商品评论概要,返回字典
     def productCommentSummaryFilter(self,productCommentSummary):
         # 过滤商品评论概要
@@ -202,12 +241,20 @@ class goodsDetails(object):
             temp_dict['content'] = comment['content'].encode('utf-8')
             temp_dict['score'] = comment['score']
             temp_dict['userProvince'] = comment['userProvince'].encode('utf-8')
-            temp_dict['userRegisterTime'] = comment['userRegisterTime'].encode('utf-8')
+            try:
+
+                temp_dict['userRegisterTime'] = comment['userRegisterTime'].encode('utf-8')
+            except:
+                temp_dict['userRegisterTime']=''
+
             temp_dict['nickname'] = comment['nickname'].encode('utf-8')
             temp_dict['userLevelName'] = comment['userLevelName'].encode('utf-8')
             try:
                 temp_image_list = []
                 for image in comment['images']:
+                    # 图片比例只有128x96,将其放大4倍
+                    image['imgUrl'] = image['imgUrl'].replace('128x96','512x384')
+
                     if image['imgUrl'].startswith('http'):
                         temp_image_list.append(image['imgUrl'].encode('utf-8'))
                     else:
@@ -215,7 +262,7 @@ class goodsDetails(object):
 
                 temp_dict['imageUrl'] = temp_image_list
             except:
-                pass
+                temp_dict['imageUrl'] = ' '
 
             try:
                 temp_commentTags_list=[]
@@ -223,17 +270,16 @@ class goodsDetails(object):
                     temp_commentTags_list.append(commentTag['name'].encode('utf-8'))
                 temp_dict['commentTags'] = temp_commentTags_list
             except:
-                pass
+                temp_dict['commentTags']=''
 
             if comment['isMobile'] :
                 temp_dict['userClientShow'] = comment['userClientShow'].encode('utf-8')
             else:
-                temp_dict['userClientShow']=''
+                temp_dict['userClientShow'] = ''
 
             temp_dict['days'] = comment['days']
             comments_Filter.append(temp_dict)
         return comments_Filter
-
 
     def outputProductCommentSummary_Filter(self,productCommentSummary_Filter):
         print '好评率:'+str(productCommentSummary_Filter['goodRateShow'])+'%'
@@ -250,15 +296,27 @@ class goodsDetails(object):
             print '有 '+str(hotCommentTag['count'])+' 人评论说: '+hotCommentTag['name']
 
     def outputcomments_Filter(self,comments_Filter):
+
         for comment in comments_Filter:
-            if comment['userClientShow']:
-                if comment['userProvince']:
-                    print '来自 '+comment['userProvince']+' 的在 '+comment['userRegisterTime']+' 注册的 '+comment['nickname']+' '+comment['userLevelName']+' 使用 '\
-                                +comment['userClientShow']+' 评论说: '+comment['content']+'并给予 '+str(comment['score'])+' 分评价',
-                    if comment.has_key('imageUrl'):
-                        print '并附上图片:'
-                        for imageUrl in comment['imageUrl']:
-                            print imageUrl
+            print '\n\n-------------------------------------------------------------------------\n'
+            print '所在省份:'+comment['userProvince']
+            print '注册时间:'+comment['userRegisterTime']
+            print '昵   称:'+comment['nickname']
+            print '会员身份:'+comment['userLevelName']
+            print '客户端:'+comment['userClientShow']
+            print '评分:'+str(comment['score'])
+            print '评论时间:'+str(comment['days'])
+            print '评论内容:'+comment['content']
+
+            if comment.has_key('commentTags'):
+                print '评论标签:'
+                for commentTag in comment['commentTags']:
+                    print '\t'+commentTag
+
+            if comment.has_key('imageUrl'):
+                print '图片链接:'
+                for imageUrl in comment['imageUrl']:
+                    print imageUrl
 
 
 
@@ -266,7 +324,7 @@ class goodsDetails(object):
 
 if __name__ =='__main__':
 
-    details = goodsDetails(lang.JD_Goods_Href);
+    details = GoodsDetails(lang.JD_Goods_Href);
     try:
         details.getGoodsArgs()
     except Exception as e:
