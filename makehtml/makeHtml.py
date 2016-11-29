@@ -86,14 +86,14 @@ class MakeHtml(object):
                 File.write('|昵   称|' + listDict['nickname']          + '|\n')
                 File.write('|会员身份|' + listDict['userLevelName'] + '|\n')
                 File.write('|评   分|' + str(listDict['score']) + '|\n')
-
+                File.write('|移动端|' + str(listDict['score']) + '|\n')
                 if listDict['days'] == 0 :
                     days = '当天'
                 else:
                     days = str(listDict['days'])
 
                 File.write('|评论时间|购买后' + days + '天评论|\n')
-                File.write('|评论内容|' + listDict['content'] + '|\n')
+                File.write('|评论内容|' + listDict['content'].replace('\n',' ') + '|\n')
 
                 if len(listDict['commentTags']) >0 :
                     File.write('|评论标签|')
@@ -104,7 +104,8 @@ class MakeHtml(object):
                 if len(listDict['imageUrl']) >0:
                     File.write('|图片|')
                     for image in listDict['imageUrl']:
-                        File.write('![]('+image+')')
+                        if image.replace(' ',''):
+                            File.write('![]('+image.replace(' ','')+')')
                     File.write('|\n')
 
             File.write('\n<center>\n')
